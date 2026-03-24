@@ -206,7 +206,7 @@ def run_benchmark(
         "temperature": 0.7,
         "stream": False,
     }
-    headers = {"X-AFM-Profile": "true"}
+    headers = {}
 
     start_time = time.perf_counter()
 
@@ -319,7 +319,7 @@ async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt
         "temperature": 0.7,
         "stream": True,
     }
-    headers = {"X-AFM-Profile": "true"}
+    headers = {}
     prompt_tokens = 0
     completion_tokens = 0
     peak_memory_gb = 0.0
