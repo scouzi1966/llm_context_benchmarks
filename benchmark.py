@@ -57,6 +57,11 @@ def get_available_engines():
             "description": "Exo OpenAI-compatible endpoint",
             "example": "local-model",
         },
+        "afm": {
+            "script": "afm_benchmark.py",
+            "description": "afm — Apple Foundation Models & MLX via afm CLI",
+            "example": "foundation",
+        },
         "paroquant": {
             "script": "paroquant_benchmark.py",
             "description": "Paroquant quantized inference (MLX, Apple Silicon)",
@@ -316,6 +321,8 @@ Examples:
 
     if args.engine == "llamacpp":
         pass_through_args.extend(["--host", args.host])
+        pass_through_args.extend(["--port", str(args.port)])
+    if args.engine == "afm":
         pass_through_args.extend(["--port", str(args.port)])
     if args.engine == "mlx-distributed":
         if not args.hostfile:

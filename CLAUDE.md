@@ -33,7 +33,7 @@ There are no automated tests in this project.
 
 - **`benchmark.py`** — Unified CLI entry point. Maps engine names to engine-specific scripts and delegates via `subprocess.run()`.
 - **`benchmark_common.py`** — Shared library used by all engines. Provides: hardware detection, context file discovery, CLI argument setup (`setup_common_args()`), result serialization (CSV, JSON, charts), chart generation (`create_chart_ollama()`, `create_chart_mlx()`), and summary formatting.
-- **`{engine}_benchmark.py`** — Engine-specific scripts (ollama_api, ollama_cli, mlx, mlx_distributed, llamacpp, lmstudio, exo, deepseek, grok, openai, vllm). Each follows: parse args → verify engine → collect hardware → warmup → iterate contexts → save outputs → print summary.
+- **`{engine}_benchmark.py`** — Engine-specific scripts (ollama_api, ollama_cli, mlx, mlx_distributed, llamacpp, lmstudio, exo, deepseek, grok, openai, afm, paroquant, vllm). Each follows: parse args → verify engine → collect hardware → warmup → iterate contexts → save outputs → print summary.
 - **`compare_benchmarks.py`** — Multi-benchmark comparison tool. Reads result directories, produces side-by-side charts/CSV/tables.
 - **`generate_context_files.py`** — Generates token-precise context files (`{size}k.txt`) using tiktoken.
 
@@ -43,10 +43,12 @@ There are no automated tests in this project.
 - **Code style**: Black (line-length 120) + isort (profile: black, line-length 120).
 - **Python 3.13+** required.
 - **Result dict contract**: All engines produce dicts with core keys: `context_size`, `prompt_tokens`, `prompt_tps`, `generation_tokens`, `generation_tps`, `total_time`, `eval_duration`, `prompt_eval_duration`, `time_to_first_token`, `generated_text`. MLX additionally includes `peak_memory_gb`.
+- **`save_all_outputs()` extras**: Accepts optional `cached_results`, `batch_results`, and `perplexity_data` kwargs (MLX-specific).
 - **Common args**: Every engine calls `benchmark_common.setup_common_args(parser)` for shared CLI arguments (`--contexts`, `--max-tokens`, `--save-responses`, `--output-csv`, `--output-chart`, `--timeout`).
 - **Context files**: Named `{size}k.txt` (e.g., `2k.txt`, `0.5k.txt`). Discovered via glob.
-- **Output directories**: `output/benchmark_{engine}_{model}_{YYYYMMDD_HHMMSS}/`
+- **Output directories**: `output/benchmark_{engine}_{model}_{machine}_{YYYYMMDD_HHMMSS}/` (machine name is auto-detected from hardware, e.g., `M3Ultra`).
 - **Conditional imports**: Framework-specific deps (mlx, paroquant) use `try/except ImportError`.
 - **`lmstudio_benchmark.py`** is an older script that doesn't use `setup_common_args()` or `save_all_outputs()` — it has its own manual argparse and output logic.
-- **`vllm_benchmark.py`** and **`llamacpp_embed_benchmark.py`** exist but are not registered as entry points in `pyproject.toml`.
+- **`paroquant_benchmark.py`** is registered in `benchmark.py`'s engine list but not as a `pyproject.toml` entry point.
+- **`vllm_benchmark.py`** and **`llamacpp_embed_benchmark.py`** exist but are not registered in either `benchmark.py` or `pyproject.toml` entry points.
 - **Two chart types**: `create_chart_ollama()` (2x2: prompt TPS, gen TPS, total time, TTFT) and `create_chart_mlx()` (3x2 or 4x2: adds memory and optional batch/perplexity charts).

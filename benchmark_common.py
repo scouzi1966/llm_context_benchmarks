@@ -241,7 +241,9 @@ def save_results_csv(results, csv_path, exclude_fields=None):
     print(f"Results saved to {csv_path}")
 
 
-def generate_xpost_text(results, model_name, framework, hardware_info=None, perplexity=None, batch_results=None, cached_results=None):
+def generate_xpost_text(
+    results, model_name, framework, hardware_info=None, perplexity=None, batch_results=None, cached_results=None
+):
     """Generate X post text with results.
 
     Args:
@@ -307,7 +309,14 @@ generate_tweet_text = generate_xpost_text
 
 
 def generate_table(
-    results, model_name, framework, hardware_info=None, include_memory=False, perplexity=None, batch_results=None, cached_results=None
+    results,
+    model_name,
+    framework,
+    hardware_info=None,
+    include_memory=False,
+    perplexity=None,
+    batch_results=None,
+    cached_results=None,
 ):
     """Generate a formatted table for posting to X/Twitter.
 
@@ -372,7 +381,7 @@ def generate_table(
         table += "Batch | Prompt TPS | Gen TPS | Memory\n"
         table += "------|------------|---------|--------\n"
         for r in batch_results:
-            table += f"{r['batch_size']:>5} | {r['prompt_tps']:>10.1f} | {r['generation_tps']:>7.1f} | {r['peak_memory_gb']:>6.1f} GB\n"
+            table += f"{r['batch_size']:>5} | {r['prompt_tps']:>10.1f} | {r['generation_tps']:>7.1f} | {r.get('peak_memory_gb', 0):>6.1f} GB\n"
 
     if cached_results:
         table += "\n\nCached KV Cache (incremental prefill)\n"
@@ -590,7 +599,7 @@ def create_chart_mlx(
         context_sizes.append(r["context_size"])
         prompt_tps.append(r["prompt_tps"])
         gen_tps.append(r["generation_tps"])
-        peak_memory.append(r["peak_memory_gb"])
+        peak_memory.append(r.get("peak_memory_gb", 0))
         generation_tokens.append(r["generation_tokens"])
         total_times.append(r.get("total_time", 0))
         ttft_times.append(r.get("time_to_first_token", r.get("prompt_eval_duration", 0)))
@@ -1086,7 +1095,13 @@ def save_all_outputs(
 
     # Generate and save X post
     xpost = generate_xpost_text(
-        results, model_name, framework, hardware_info, perplexity=perplexity, batch_results=batch_results, cached_results=cached_results
+        results,
+        model_name,
+        framework,
+        hardware_info,
+        perplexity=perplexity,
+        batch_results=batch_results,
+        cached_results=cached_results,
     )
     xpost_path = output_dir / "xpost.txt"
     with open(xpost_path, "w") as f:
@@ -1137,7 +1152,7 @@ def print_benchmark_summary(
         print("=" * 50)
         for r in batch_results:
             print(
-                f"  Batch {r['batch_size']:>2}: pp {r['prompt_tps']:.1f} tg {r['generation_tps']:.1f} t/s, {r['peak_memory_gb']:.2f} GB"
+                f"  Batch {r['batch_size']:>2}: pp {r['prompt_tps']:.1f} tg {r['generation_tps']:.1f} t/s, {r.get('peak_memory_gb', 0):.2f} GB"
             )
 
     # Print cached benchmark results if available
@@ -1165,7 +1180,13 @@ def print_benchmark_summary(
     print("SUMMARY TABLE")
     print("=" * 50)
     table = generate_table(
-        results, model_name, framework, hardware_info, perplexity=perplexity, batch_results=batch_results, cached_results=cached_results
+        results,
+        model_name,
+        framework,
+        hardware_info,
+        perplexity=perplexity,
+        batch_results=batch_results,
+        cached_results=cached_results,
     )
     print(table)
 
@@ -1174,7 +1195,13 @@ def print_benchmark_summary(
     print("X POST TEXT")
     print("=" * 50)
     xpost = generate_xpost_text(
-        results, model_name, framework, hardware_info, perplexity=perplexity, batch_results=batch_results, cached_results=cached_results
+        results,
+        model_name,
+        framework,
+        hardware_info,
+        perplexity=perplexity,
+        batch_results=batch_results,
+        cached_results=cached_results,
     )
     print(xpost)
 

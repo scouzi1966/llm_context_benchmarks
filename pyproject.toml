@@ -5,6 +5,7 @@ description = "Benchmarking tools for LLM context sizes across multiple inferenc
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+  "aiohttp>=3.9.0",
   "annotated-types>=0.7.0",
   "anyio>=4.11.0",
   "blobfile>=3.0.0",
@@ -31,7 +32,7 @@ dependencies = [
   "markupsafe>=3.0.3",
   "matplotlib>=3.10.6",
   "mlx>=0.30.6",
-  "mlx-lm==0.30.7",
+  "mlx-lm>=0.31.1",
   "mlx-metal>=0.30.6",
   "nodeenv>=1.9.1",
   "numpy>=2.3.3",
@@ -76,6 +77,7 @@ ollama-cli-benchmark = "ollama_cli_benchmark:main"
 mlx-benchmark = "mlx_benchmark:main"
 mlx-distributed-benchmark = "mlx_distributed_benchmark:main"
 llamacpp-benchmark = "llamacpp_benchmark:main"
+afm-benchmark = "afm_benchmark:main"
 lmstudio-benchmark = "lmstudio_benchmark:main"
 exo-benchmark = "exo_benchmark:main"
 deepseek-benchmark = "deepseek_benchmark:main"
@@ -97,6 +99,7 @@ py-modules = [
   "generate_context_files",
   "grok_benchmark",
   "llamacpp_benchmark",
+  "afm_benchmark",
   "lmstudio_benchmark",
   "mlx_benchmark",
   "mlx_distributed_benchmark",
