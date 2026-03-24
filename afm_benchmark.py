@@ -234,9 +234,8 @@ def run_benchmark(
     ptd = usage.get("prompt_tokens_details") or {}
     cached_tokens = ptd.get("cached_tokens", 0)
 
-    # Extract afm_profile (non-streaming: in response body)
-    profile = data.get("afm_profile") or {}
-    peak_memory_gb = profile.get("memory_peak_gib", 0.0)
+    # Peak memory from usage (lightweight MLX allocator counter, no profiling overhead)
+    peak_memory_gb = usage.get("peak_memory_gib", 0.0)
 
     # Extract generated text
     choices = data.get("choices", [])
