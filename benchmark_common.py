@@ -230,11 +230,11 @@ def save_results_csv(results, csv_path, exclude_fields=None):
         return
 
     with open(csv_path, "w", newline="") as f:
-        # Create a list of fieldnames excluding specified fields
-        fieldnames = [k for k in results[0].keys() if k not in exclude_fields]
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        # Build fieldnames from ALL rows to handle optional fields like cached_tokens
+        all_keys = dict.fromkeys(k for row in results for k in row.keys() if k not in exclude_fields)
+        fieldnames = list(all_keys)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        # Write rows without the excluded fields
         for row in results:
             csv_row = {k: v for k, v in row.items() if k not in exclude_fields}
             writer.writerow(csv_row)
