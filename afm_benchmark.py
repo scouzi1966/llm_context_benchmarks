@@ -310,7 +310,11 @@ def run_benchmark(
 
 
 async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt: str, gen_tokens: int) -> Dict:
-    """Send one streaming request with X-AFM-Profile, parse SSE, return metrics."""
+    """Send one streaming request, parse SSE, return metrics from usage chunk.
+
+    Streaming is required for BatchScheduler concurrent decode to work.
+    Non-streaming requests bypass the BatchScheduler and serialize.
+    """
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -318,7 +322,7 @@ async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt
         "temperature": 0.7,
         "stream": True,
     }
-    headers = {}
+
     prompt_tokens = 0
     completion_tokens = 0
     peak_memory_gb = 0.0
@@ -326,7 +330,7 @@ async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt
     server_gen_tps = None
     n_chunks = 0
 
-    async with session.post(url, json=payload, headers=headers) as resp:
+    async with session.post(url, json=payload) as resp:
         if resp.status != 200:
             body = await resp.text()
             raise RuntimeError(f"HTTP {resp.status}: {body[:200]}")
@@ -344,13 +348,11 @@ async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt
                     break
                 try:
                     chunk = json_mod.loads(data)
-                    if "afm_profile" in chunk:
-                        peak_memory_gb = chunk["afm_profile"].get("memory_peak_gib", 0.0)
-                        continue
                     usage = chunk.get("usage")
                     if usage:
                         prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
                         completion_tokens = usage.get("completion_tokens", completion_tokens)
+                        peak_memory_gb = usage.get("peak_memory_gib", 0.0)
                         server_prompt_tps = usage.get("prompt_tokens_per_second")
                         server_gen_tps = usage.get("completion_tokens_per_second")
                     choices = chunk.get("choices", [])
@@ -361,7 +363,6 @@ async def _send_one(session: aiohttp.ClientSession, url: str, model: str, prompt
                 except (json_mod.JSONDecodeError, KeyError):
                     continue
 
-    # Prefer server-reported usage; fall back to chunk count
     if completion_tokens == 0:
         completion_tokens = n_chunks
 
