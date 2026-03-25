@@ -117,3 +117,5 @@ $RECYCLE.BIN/
 *.lnk
 
 .mypy_cache
+maclocal-api/
+mlx-swift-investigation/
