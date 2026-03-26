@@ -151,10 +151,7 @@ def _warmup_request(base_url: str, model: str) -> None:
     url = f"{base_url}/chat/completions"
     warmup_specs = [
         ("Say hello.", 16),
-        ("Write a paragraph about the weather today.", 128),
-        ("Write a detailed paragraph about the history of computers.", 512),
-        ("Write a long essay about artificial intelligence and its impact on society.", 1024),
-        ("Explain quantum computing in detail.", 512),
+        ("Write a short paragraph.", 64),
     ]
     n = len(warmup_specs)
     for i, (prompt, max_tokens) in enumerate(warmup_specs):
@@ -447,11 +444,22 @@ def run_batch_benchmark(
             total_gen = sum(r["completion_tokens"] for r in responses)
             trial_peak_mem = max((r.get("peak_memory_gb", 0) for r in responses), default=0)
 
-            # bs=1: use server-reported TPS (parity with mlx's last_response.prompt_tps)
-            # bs>1: use wall-clock aggregate (concurrent HTTP ≠ single batched forward pass)
-            if bs == 1 and responses[0].get("server_prompt_tps") is not None:
-                trial_pp = responses[0]["server_prompt_tps"]
-                trial_tg = responses[0]["server_gen_tps"] or 0
+            # Parity with mlx_lm's BatchGenerator stats:
+            #   prompt_tps  = total_prompt_tokens / pure_prefill_time  (aggregate)
+            #   generation_tps = total_gen_tokens / pure_decode_time   (aggregate)
+            # afm server reports per-request: prompt_tokens/prompt_time, completion_tokens/completion_time.
+            # For prompt: average per-request pp (shared batch prefill → same prompt_time → avg ≈ per-request).
+            #   mlx_lm's prompt_tps = total / time = B * per_request_tokens / time ≈ B * per_request_pp
+            #   (but mlx_lm only reports one aggregate number, so we match with average for the chart label)
+            # For gen: sum per-request gen_tps ≈ aggregate (all B share the decode window).
+            server_pp_vals = [r["server_prompt_tps"] for r in responses if r.get("server_prompt_tps")]
+            server_tg_vals = [r["server_gen_tps"] for r in responses if r.get("server_gen_tps")]
+            if server_pp_vals and server_tg_vals:
+                # Aggregate: sum per-request TPS. All batched sequences share the same
+                # prefill/decode time window, so sum ≈ total_tokens/shared_time.
+                # Matches mlx_lm's BatchGenerator.stats() which reports aggregate.
+                trial_pp = sum(server_pp_vals)
+                trial_tg = sum(server_tg_vals)
                 src = "server"
             else:
                 trial_pp = total_prompt / wall_time if wall_time > 0 else 0
@@ -738,18 +746,38 @@ def main() -> int:
         except Exception as e:
             print(f"Perplexity computation failed (continuing): {e}")
 
-    # --- Batch benchmark ---
+    # --- Batch benchmark (runs AFTER context sweep to avoid thermal contamination) ---
     batch_results = None
+    batch_sizes = None
+    skip_batch = False
     if args.no_batch:
         print("\nSkipping batch benchmark (--no-batch)")
+        skip_batch = True
     elif args.model.lower() == "foundation":
         print("\nSkipping batch benchmark (not supported for Foundation model)")
+        skip_batch = True
     else:
         batch_sizes = [int(s.strip()) for s in args.batch_sizes.split(",")]
+
+    # --- Context sweep (runs first — cold GPU, consistent thermals) ---
+    benchmark_start = time.perf_counter()
+
+    if args.managed:
+        results = run_managed(args, base_url, context_files, framework, output_dir)
+    else:
+        results = run_external(args, base_url, context_files, framework, output_dir)
+
+    total_benchmark_time = time.perf_counter() - benchmark_start
+
+    if not results:
+        print("\nNo successful benchmark results.")
+        return 1
+
+    # --- Batch benchmark (after context sweep to avoid thermal contamination) ---
+    if not skip_batch and batch_sizes:
         print(f"\nRunning batch benchmark (concurrency levels: {batch_sizes})...")
 
         if args.managed:
-            # Restart afm per concurrency level for clean state
             batch_results = []
             for bs in batch_sizes:
                 concurrent_slots = bs * 2 + 4
@@ -780,7 +808,6 @@ def main() -> int:
                     stop_afm_server(proc)
             batch_results = batch_results or None
         else:
-            # External mode — just run against the existing server
             try:
                 batch_results = run_batch_benchmark(
                     base_url,
@@ -795,20 +822,6 @@ def main() -> int:
 
         if batch_results:
             print(f"\nBatch benchmark complete: {len(batch_results)} concurrency levels tested")
-
-    # --- Context sweep ---
-    benchmark_start = time.perf_counter()
-
-    if args.managed:
-        results = run_managed(args, base_url, context_files, framework, output_dir)
-    else:
-        results = run_external(args, base_url, context_files, framework, output_dir)
-
-    total_benchmark_time = time.perf_counter() - benchmark_start
-
-    if not results:
-        print("\nNo successful benchmark results.")
-        return 1
 
     common.save_all_outputs(
         results,
